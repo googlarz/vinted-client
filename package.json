@@ -1,12 +1,14 @@
 {
   "name": "@googlarz/vinted-client",
   "version": "0.2.0",
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "CLI and MCP server for the Vinted marketplace — search, items, sellers, price compare, trending.",
   "type": "module",
   "bin": {
-    "vinted": "./dist/cli.js",
-    "vinted-mcp": "./dist/mcp.js"
+    "vinted": "dist/cli.js",
+    "vinted-mcp": "dist/mcp.js"
   },
   "scripts": {
     "build": "tsc",
@@ -31,8 +33,20 @@
     "@types/node": "^20.14.0",
     "typescript": "^5.5.0"
   },
-  "engines": { "node": ">=18.0.0" },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "license": "MIT",
-  "files": ["dist", "README.md"],
-  "keywords": ["vinted", "cli", "mcp", "marketplace", "scraper", "price-comparison"]
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "vinted",
+    "cli",
+    "mcp",
+    "marketplace",
+    "scraper",
+    "price-comparison"
+  ]
 }
