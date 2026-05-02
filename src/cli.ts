@@ -9,8 +9,8 @@ import { opCompare } from './ops/compare.js';
 import { opTrending } from './ops/trending.js';
 import { opBrands, resolveBrandIds } from './ops/brands.js';
 
-function client(opts: { proxy?: string }) {
-  return new VintedClient({ proxyUrl: opts.proxy });
+function client(opts: { proxy?: string; noCache?: boolean }) {
+  return new VintedClient({ proxyUrl: opts.proxy, cacheTtlMs: opts.noCache ? 0 : undefined });
 }
 
 function out(x: unknown) {
@@ -32,7 +32,8 @@ program
   .name('vinted')
   .description('CLI for the Vinted marketplace — search, items, sellers, price compare, trending.')
   .version('0.1.0')
-  .option('--proxy <url>', 'HTTP/HTTPS proxy URL (also: VINTED_PROXY_URL, HTTPS_PROXY)');
+  .option('--proxy <url>', 'HTTP/HTTPS proxy URL (also: VINTED_PROXY_URL, HTTPS_PROXY)')
+  .option('--no-cache', 'disable in-memory response cache (default 60s TTL)');
 
 program
   .command('search <query>')

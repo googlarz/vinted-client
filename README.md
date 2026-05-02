@@ -1,4 +1,4 @@
-# vinted-client
+# @googlarz/vinted-client
 
 CLI and (optional) MCP server for the [Vinted](https://www.vinted.com) marketplace —
 search listings, fetch items/sellers, compare prices across countries, and pull
@@ -13,13 +13,13 @@ a CLI as the primary interface, and MCP as an opt-in transport.
 ## Install
 
 ```bash
-npm install
-npm run build
+npm install -g @googlarz/vinted-client
 ```
 
-Install globally:
+Or from source:
 
 ```bash
+npm install && npm run build
 npm install -g .
 ```
 

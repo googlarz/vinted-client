@@ -1,5 +1,7 @@
 import { ProxyAgent, Agent, type Dispatcher, fetch as undiciFetch } from 'undici';
 import { DOMAIN, type Country } from './types.js';
+import { TtlCache } from './cache.js';
+import { TokenBucket } from './rate-limit.js';
 
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
@@ -17,18 +19,35 @@ export interface DebugInfo {
   cookie: string;
 }
 
+export interface VintedClientOptions {
+  proxyUrl?: string;
+  timeoutMs?: number;
+  cacheTtlMs?: number;        // default 60s; 0 disables
+  rateLimitPerSec?: number;   // default 3 req/s/country
+  rateLimitBurst?: number;    // default 6
+}
+
 export class VintedClient {
   private dispatcher: Dispatcher;
   private sessions = new Map<Country, SessionEntry>();
   private sessionTtlMs = 10 * 60 * 1000;
   public readonly proxyUrl?: string;
+  private cache: TtlCache<string, unknown>;
+  private cacheTtlMs: number;
+  private bucket: TokenBucket;
 
-  constructor(opts: { proxyUrl?: string; timeoutMs?: number } = {}) {
+  constructor(opts: VintedClientOptions = {}) {
     this.proxyUrl =
       opts.proxyUrl ?? process.env.VINTED_PROXY_URL ?? process.env.HTTPS_PROXY ?? process.env.HTTP_PROXY ?? undefined;
     this.dispatcher = this.proxyUrl
       ? new ProxyAgent({ uri: this.proxyUrl, headersTimeout: opts.timeoutMs ?? 20000 })
       : new Agent({ headersTimeout: opts.timeoutMs ?? 20000 });
+
+    this.cacheTtlMs = opts.cacheTtlMs ?? Number(process.env.VINTED_CACHE_TTL_MS ?? 60_000);
+    this.cache = new TtlCache(this.cacheTtlMs);
+    const refill = opts.rateLimitPerSec ?? Number(process.env.VINTED_RATE_LIMIT_PER_SEC ?? 3);
+    const burst = opts.rateLimitBurst ?? Number(process.env.VINTED_RATE_LIMIT_BURST ?? 6);
+    this.bucket = new TokenBucket(burst, refill);
   }
 
   private async bootstrap(country: Country): Promise<{ status: number; cookie: string; cookieNames: string[] }> {
@@ -105,11 +124,18 @@ export class VintedClient {
   }
 
   async apiGet<T = unknown>(country: Country, path: string): Promise<T> {
+    const cacheKey = `${country}:${path}`;
+    if (this.cacheTtlMs > 0) {
+      const hit = this.cache.get(cacheKey) as T | undefined;
+      if (hit !== undefined) return hit;
+    }
+
     const domain = DOMAIN[country];
     const url = `https://${domain}${path}`;
     const maxRetries = 3;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      await this.bucket.take(country);
       const cookie = await this.getSessionCookie(country);
       const res = await undiciFetch(url, {
         method: 'GET',
@@ -153,7 +179,9 @@ export class VintedClient {
         throw new Error(`Vinted ${res.status} for ${url}: ${body.slice(0, 200)}`);
       }
 
-      return (await res.json()) as T;
+      const json = (await res.json()) as T;
+      if (this.cacheTtlMs > 0) this.cache.set(cacheKey, json);
+      return json;
     }
 
     throw new Error(`Vinted 429 for ${url}: rate-limited after ${maxRetries} retries`);

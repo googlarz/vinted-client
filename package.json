@@ -1,6 +1,7 @@
 {
-  "name": "vinted-client",
-  "version": "0.1.0",
+  "name": "@googlarz/vinted-client",
+  "version": "0.2.0",
+  "publishConfig": { "access": "public" },
   "description": "CLI and MCP server for the Vinted marketplace — search, items, sellers, price compare, trending.",
   "type": "module",
   "bin": {

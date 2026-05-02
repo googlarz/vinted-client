@@ -142,9 +142,35 @@ function makeServer(): Server {
 }
 
 async function main() {
+  const transport = process.env.VINTED_MCP_TRANSPORT;
+  if (transport === 'http') return startHttp();
   const server = makeServer();
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  const stdio = new StdioServerTransport();
+  await server.connect(stdio);
+}
+
+async function startHttp() {
+  const { StreamableHTTPServerTransport } = await import(
+    '@modelcontextprotocol/sdk/server/streamableHttp.js'
+  );
+  const { createServer } = await import('node:http');
+  const port = Number(process.env.VINTED_MCP_PORT ?? 3001);
+  const host = process.env.VINTED_MCP_HOST ?? '127.0.0.1';
+  const path = process.env.VINTED_MCP_PATH ?? '/mcp';
+
+  const httpServer = createServer(async (req, res) => {
+    if (!req.url || !req.url.startsWith(path)) {
+      res.statusCode = 404; res.end('Not Found'); return;
+    }
+    const server = makeServer();
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    res.on('close', () => { transport.close().catch(() => {}); server.close().catch(() => {}); });
+    await server.connect(transport);
+    await transport.handleRequest(req, res);
+  });
+
+  await new Promise<void>((resolve) => httpServer.listen(port, host, resolve));
+  process.stderr.write(`vinted-mcp listening on http://${host}:${port}${path}\n`);
 }
 
 main().catch((e) => {

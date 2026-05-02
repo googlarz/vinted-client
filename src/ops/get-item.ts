@@ -31,7 +31,8 @@ export async function opGetItem(
   input: { itemId?: number; url?: string; country?: Country; browser?: boolean },
 ): Promise<ItemDetail> {
   const { id, country } = parseItemRef(input);
-  const useBrowser = input.browser ?? process.env.VINTED_BROWSER === '1';
+  const useBrowser =
+    input.browser ?? (process.env.VINTED_BROWSER === '1' || process.env.VINTED_STEALTH === '1');
   if (!useBrowser) return getItem(client, id, country);
 
   const data: any = await fetchItemDetailsViaBrowser(id, country, { proxyUrl: client.proxyUrl });
