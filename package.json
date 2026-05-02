@@ -1,5 +1,5 @@
 {
-  "name": "vinted-cli",
+  "name": "vinted-client",
   "version": "0.1.0",
   "description": "CLI and MCP server for the Vinted marketplace — search, items, sellers, price compare, trending.",
   "type": "module",
