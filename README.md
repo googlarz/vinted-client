@@ -185,8 +185,8 @@ npm run test:integration  # hits live Vinted (requires network)
 
 ## Status
 
-v0.1 — all 5 ops verified live against `vinted.fr`. Endpoints follow Vinted's
-catalog API shape; expect breakage when they change. Contributions welcome.
+v1.0.0 — all 7 ops verified live against Vinted (fr, de, it, es, nl, pl and more).
+Endpoints follow Vinted's private catalog API — expect occasional breakage when they rotate auth or schema. Contributions welcome.
 
 ## License
 
