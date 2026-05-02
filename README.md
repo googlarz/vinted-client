@@ -8,7 +8,7 @@ Inspired by `vinted-mcp-server`, but built from scratch with an open Vinted clie
 a CLI as the primary interface, and MCP as an opt-in transport.
 
 > ⚠️ Vinted has anti-bot protection. Bare requests work most of the time but can be
-> rate-limited or blocked. Set `VINTED_PROXY_URL` (or `--proxy`) for reliability.
+> rate-limited or blocked. Set a proxy for reliability — see [Proxy setup](#proxy-setup).
 
 ## Install
 
@@ -83,6 +83,69 @@ src/
   cli.ts          commander entrypoint → bin: vinted
   mcp.ts          MCP stdio server → bin: vinted-mcp
 ```
+
+## Proxy setup
+
+Vinted is fronted by Cloudflare and DataDome. Plain Node requests will sometimes
+get 401/403/429, especially from cloud IPs or when hitting `/items/{id}/details`.
+Routing through a proxy fixes most of this.
+
+The CLI accepts a proxy three ways (any one is enough):
+
+```bash
+# 1. Per-invocation flag
+vinted --proxy "http://user:pass@proxy.example.com:8000" search "nike"
+
+# 2. Tool-specific env var (recommended for shell sessions)
+export VINTED_PROXY_URL="http://user:pass@proxy.example.com:8000"
+vinted search "nike"
+
+# 3. Standard env vars (also picked up automatically)
+export HTTPS_PROXY="http://user:pass@proxy.example.com:8000"
+vinted search "nike"
+```
+
+Precedence: `--proxy` → `VINTED_PROXY_URL` → `HTTPS_PROXY` → `HTTP_PROXY`.
+
+URL format: `http://[user:pass@]host:port` — credentials are URL-encoded.
+SOCKS5 is **not** supported (undici limitation); use an HTTP/HTTPS proxy.
+
+### Picking a proxy
+
+| Type | Works for catalog API | Works for `/details` (DataDome) | Notes |
+|---|---|---|---|
+| **Datacenter HTTP proxy** | Usually | Rarely | Fine for `search`, `seller`, `compare`, `trending`. Cheap. |
+| **Residential proxy** (Bright Data, Oxylabs, IPRoyal, Smartproxy, etc.) | Yes | Often | Recommended for production / `--all` heavy use. |
+| **Mobile/4G proxy** | Yes | Yes | Most reliable, most expensive. |
+| **Apify Proxy** | Yes | Sometimes | The upstream `vinted-mcp-server` uses this; set `APIFY_PROXY_URL` style URLs in `VINTED_PROXY_URL`. |
+| **Free public proxies** | No | No | Don't bother. Already burned by Vinted. |
+
+For **gated item detail** specifically, even a residential proxy isn't a guarantee —
+DataDome also fingerprints TLS. If `vinted item <id>` keeps falling back to JSON-LD,
+combine the proxy with `--browser` mode (see below).
+
+### Persisting in MCP config
+
+```jsonc
+{
+  "mcpServers": {
+    "vinted": {
+      "command": "vinted-mcp",
+      "env": { "VINTED_PROXY_URL": "http://user:pass@proxy.example.com:8000" }
+    }
+  }
+}
+```
+
+### Verifying it works
+
+```bash
+vinted debug --country fr --proxy "$VINTED_PROXY_URL"
+```
+
+Should return `bootstrapStatus: 200` and a list of cookie names including
+`access_token_web`. If the status is 403 or the cookie list is empty, the proxy
+is being blocked — try a different IP/provider.
 
 ## Browser mode (opt-in)
 
