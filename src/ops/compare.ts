@@ -1,0 +1,98 @@
+import { VintedClient } from '../client/session.js';
+import { searchSlim } from '../client/endpoints.js';
+import type { Country } from '../client/types.js';
+
+export interface CountryStats {
+  country: Country;
+  itemCount: number;
+  currency: string;
+  avgPrice: number;
+  medianPrice: number;
+  minPrice: number;
+  maxPrice: number;
+}
+
+export interface CompareResult {
+  query: string;
+  countries: CountryStats[];
+  bestBuyCountry: Country | null;
+  bestSellCountry: Country | null;
+  arbitrageSpreadPct: number;
+}
+
+function median(xs: number[]): number {
+  if (!xs.length) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+export async function opCompare(
+  client: VintedClient,
+  input: { query: string; countries?: Country[]; limit?: number; concurrency?: number },
+): Promise<CompareResult> {
+  if (!input.query?.trim()) throw new Error('query is required');
+  const countries = input.countries ?? ['fr', 'de', 'it', 'es', 'nl', 'pl'];
+  const limit = input.limit ?? 20;
+  const concurrency = Math.max(1, Math.min(input.concurrency ?? 3, 6));
+
+  const fetchOne = async (c: Country): Promise<CountryStats | null> => {
+    try {
+      const items = await searchSlim(client, input.query, c, limit);
+      if (!items.length) return null;
+      const prices = items.map((i) => i.price);
+      return {
+        country: c,
+        itemCount: items.length,
+        currency: items[0].currency,
+        avgPrice: round(prices.reduce((a, b) => a + b, 0) / prices.length),
+        medianPrice: round(median(prices)),
+        minPrice: round(Math.min(...prices)),
+        maxPrice: round(Math.max(...prices)),
+      } satisfies CountryStats;
+    } catch {
+      return null;
+    }
+  };
+
+  const results = await runWithConcurrency(countries, concurrency, fetchOne);
+  const stats = results.filter((x): x is CountryStats => x !== null);
+  if (!stats.length) {
+    return { query: input.query, countries: [], bestBuyCountry: null, bestSellCountry: null, arbitrageSpreadPct: 0 };
+  }
+
+  const byMedian = [...stats].sort((a, b) => a.medianPrice - b.medianPrice);
+  const lo = byMedian[0];
+  const hi = byMedian[byMedian.length - 1];
+  const spread = lo.medianPrice > 0 ? ((hi.medianPrice - lo.medianPrice) / lo.medianPrice) * 100 : 0;
+
+  return {
+    query: input.query,
+    countries: stats,
+    bestBuyCountry: lo.country,
+    bestSellCountry: hi.country,
+    arbitrageSpreadPct: round(spread),
+  };
+}
+
+function round(x: number): number {
+  return Math.round(x * 100) / 100;
+}
+
+async function runWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (true) {
+      const i = cursor++;
+      if (i >= items.length) return;
+      out[i] = await fn(items[i]);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}

@@ -1,0 +1,37 @@
+{
+  "name": "vinted-cli",
+  "version": "0.1.0",
+  "description": "CLI and MCP server for the Vinted marketplace — search, items, sellers, price compare, trending.",
+  "type": "module",
+  "bin": {
+    "vinted": "./dist/cli.js",
+    "vinted-mcp": "./dist/mcp.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "cli": "node dist/cli.js",
+    "mcp": "node dist/mcp.js",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "test:integration": "INTEGRATION=1 node --test test/integration.test.mjs",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "undici": "^6.19.8"
+  },
+  "optionalDependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "playwright": "^1.45.0",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": { "node": ">=18.0.0" },
+  "license": "MIT",
+  "files": ["dist", "README.md"],
+  "keywords": ["vinted", "cli", "mcp", "marketplace", "scraper", "price-comparison"]
+}

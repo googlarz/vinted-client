@@ -1,0 +1,26 @@
+{
+  "items": [
+    {
+      "id": 1001,
+      "title": "Nike Air Max 90",
+      "price": { "amount": "45.00", "currency_code": "EUR" },
+      "brand_title": "Nike",
+      "size_title": "42",
+      "status": "good",
+      "url": "https://www.vinted.fr/items/1001-nike-air-max-90",
+      "favourite_count": 7,
+      "photo": { "url": "https://photos.vinted.net/x/1001.jpg" },
+      "user": { "id": 5001, "login": "alice" }
+    },
+    {
+      "id": 1002,
+      "title": "Nike Tee",
+      "price": { "amount": "12.50", "currency_code": "EUR" },
+      "brand_title": "Nike",
+      "status": "very_good",
+      "url": "https://www.vinted.fr/items/1002-nike-tee",
+      "user": { "id": 5002, "login": "bob" }
+    }
+  ],
+  "pagination": { "total_entries": 2 }
+}

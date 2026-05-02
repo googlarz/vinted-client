@@ -1,0 +1,19 @@
+{
+  "item": {
+    "id": 1001,
+    "title": "Nike Air Max 90",
+    "price": { "amount": "45.00", "currency_code": "EUR" },
+    "brand_dto": { "title": "Nike" },
+    "size_title": "42",
+    "status": "good",
+    "description": "Used pair, very clean.",
+    "photos": [
+      { "full_size_url": "https://photos.vinted.net/x/1001-a.jpg" },
+      { "full_size_url": "https://photos.vinted.net/x/1001-b.jpg" }
+    ],
+    "url": "https://www.vinted.fr/items/1001-nike-air-max-90",
+    "favourite_count": 7,
+    "user": { "id": 5001, "login": "alice" },
+    "created_at_ts": "2026-04-01T10:00:00Z"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "user": {
+    "id": 5001,
+    "login": "alice",
+    "item_count": 42,
+    "feedback_reputation": 0.98,
+    "feedback_count": 100,
+    "country_code": "FR"
+  }
+}
