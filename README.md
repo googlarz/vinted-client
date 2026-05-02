@@ -26,12 +26,29 @@ npm install -g .
 ## CLI
 
 ```bash
-vinted search "nike air max" --country fr --price-max 50 --limit 10
+# Search — pass IDs directly, or names that get resolved via Vinted lookup
+vinted search "air max" --country fr --price-max 50 --limit 10
+vinted search "shoes"  --brand "Nike,Adidas" --country fr
+vinted search "shoes"  --brand-ids 53,14 --country fr
+
+# Walk all pages (deduped, capped)
+vinted search "uniqlo" --all --max-items 500 --max-pages 10
+
+# Brand lookup
+vinted brands "nike" --limit 5
+
+# Items
 vinted item 12345678 --country fr
 vinted item https://www.vinted.fr/items/12345678-nike-air-max
+vinted item 12345678 --browser            # stealth Chromium for full fidelity
+
+# Sellers, price comparison, trending
 vinted seller 987654 --country de
 vinted compare "iphone 13" --countries fr,de,uk,it --limit 30
 vinted trending --country pl --limit 20
+
+# Diagnostics
+vinted debug --country fr                 # inspect bootstrap cookies
 ```
 
 Global flags:
@@ -55,7 +72,7 @@ Optional. Requires `@modelcontextprotocol/sdk` (declared as `optionalDependencie
 }
 ```
 
-Tools exposed: `search_items`, `get_item`, `get_seller`, `compare_prices`, `get_trending`.
+Tools exposed: `search_items`, `search_brands`, `get_item`, `get_seller`, `compare_prices`, `get_trending`. `search_items` accepts `brand` (string array) — names get auto-resolved to IDs via `search_brands`.
 
 ## Project layout
 

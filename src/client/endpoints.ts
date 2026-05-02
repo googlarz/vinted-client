@@ -137,6 +137,33 @@ export async function getSeller(
   };
 }
 
+export interface BrandHit {
+  id: number;
+  title: string;
+  slug: string;
+  itemCount?: number;
+  favouriteCount?: number;
+}
+
+export async function searchBrands(
+  client: VintedClient,
+  keyword: string,
+  country: Country = 'fr',
+): Promise<BrandHit[]> {
+  if (!keyword.trim()) return [];
+  const data = await client.apiGet<{ brands?: any[] }>(
+    country,
+    `/api/v2/brands?keyword=${encodeURIComponent(keyword)}`,
+  );
+  return (data.brands ?? []).map((b) => ({
+    id: Number(b.id),
+    title: String(b.title ?? ''),
+    slug: String(b.slug ?? ''),
+    itemCount: b.item_count,
+    favouriteCount: b.favourite_count,
+  }));
+}
+
 export interface ItemSlim { price: number; currency: string; }
 
 export async function searchSlim(

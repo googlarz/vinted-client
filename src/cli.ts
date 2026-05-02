@@ -7,6 +7,7 @@ import { opGetItem } from './ops/get-item.js';
 import { opGetSeller } from './ops/get-seller.js';
 import { opCompare } from './ops/compare.js';
 import { opTrending } from './ops/trending.js';
+import { opBrands, resolveBrandIds } from './ops/brands.js';
 
 function client(opts: { proxy?: string }) {
   return new VintedClient({ proxyUrl: opts.proxy });
@@ -40,6 +41,7 @@ program
   .option('--price-min <n>', 'min price', (v) => Number(v))
   .option('--price-max <n>', 'max price', (v) => Number(v))
   .option('--brand-ids <ids>', 'comma-separated brand IDs', (v) => parseList<string>(v).map(Number))
+  .option('--brand <names>', 'comma-separated brand names (resolved to IDs via Vinted lookup)')
   .option('--category-id <n>', 'category ID', (v) => Number(v))
   .option('--condition <list>', 'comma-separated conditions', (v) => parseList<Condition>(v))
   .addOption(new Option('--sort <s>', 'sort').choices(['relevance', 'price_low_to_high', 'price_high_to_low', 'newest_first']).default('relevance'))
@@ -51,12 +53,21 @@ program
   .action(async (query: string, o, cmd) => {
     try {
       const c = client(cmd.optsWithGlobals());
+      let brandIds = o.brandIds as number[] | undefined;
+      if (!brandIds && o.brand) {
+        const names = parseList<string>(o.brand);
+        const r = await resolveBrandIds(c, names, o.country as Country);
+        brandIds = r.ids.length ? r.ids : undefined;
+        if (r.unresolved.length) {
+          process.stderr.write(`warn: unresolved brand(s): ${r.unresolved.join(', ')}\n`);
+        }
+      }
       const params = {
         query,
         country: o.country as Country,
         priceMin: o.priceMin,
         priceMax: o.priceMax,
-        brandIds: o.brandIds,
+        brandIds,
         categoryId: o.categoryId,
         condition: o.condition,
         sortBy: o.sort as SortBy,
@@ -111,6 +122,20 @@ program
         query,
         countries: o.countries,
         limit: o.limit,
+      });
+      out(r);
+    } catch (e) { fail(e); }
+  });
+
+program
+  .command('brands <query>')
+  .description('Look up Vinted brand IDs by name')
+  .addOption(new Option('-c, --country <cc>', 'country code').choices(COUNTRIES).default('fr'))
+  .option('-l, --limit <n>', 'max results', (v) => Number(v), 10)
+  .action(async (query: string, o, cmd) => {
+    try {
+      const r = await opBrands(client(cmd.optsWithGlobals()), {
+        query, country: o.country as Country, limit: o.limit,
       });
       out(r);
     } catch (e) { fail(e); }

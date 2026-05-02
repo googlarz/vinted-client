@@ -9,11 +9,12 @@ import { opGetItem } from './ops/get-item.js';
 import { opGetSeller } from './ops/get-seller.js';
 import { opCompare } from './ops/compare.js';
 import { opTrending } from './ops/trending.js';
+import { opBrands, resolveBrandIds } from './ops/brands.js';
 
 const TOOLS = [
   {
     name: 'search_items',
-    description: 'Search Vinted listings with filters across 19 countries.',
+    description: 'Search Vinted listings with filters across 19 countries. Pass `brand` (string array of names) to auto-resolve to IDs, or `brandIds` directly.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -22,6 +23,7 @@ const TOOLS = [
         priceMin: { type: 'number' },
         priceMax: { type: 'number' },
         brandIds: { type: 'array', items: { type: 'integer' } },
+        brand: { type: 'array', items: { type: 'string' }, description: 'Brand names; resolved to IDs via Vinted lookup' },
         categoryId: { type: 'integer' },
         condition: { type: 'array', items: { type: 'string', enum: ['new_with_tags', 'new_without_tags', 'very_good', 'good', 'satisfactory'] } },
         sortBy: { type: 'string', enum: ['relevance', 'price_low_to_high', 'price_high_to_low', 'newest_first'] },
@@ -70,6 +72,19 @@ const TOOLS = [
     },
   },
   {
+    name: 'search_brands',
+    description: 'Look up Vinted brand IDs by keyword. Use these IDs in search_items.brandIds.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string' },
+        country: { type: 'string', enum: COUNTRIES, default: 'fr' },
+        limit: { type: 'integer', default: 10 },
+      },
+      required: ['query'],
+    },
+  },
+  {
     name: 'get_trending',
     description: 'Newest / trending items for a country (optionally scoped to a category).',
     inputSchema: {
@@ -100,7 +115,16 @@ function makeServer(): Server {
       const c = getClient();
       let result: unknown;
       switch (name) {
-        case 'search_items': result = await opSearch(c, a as any); break;
+        case 'search_items': {
+          const args = a as any;
+          if (!args.brandIds && Array.isArray(args.brand) && args.brand.length) {
+            const r = await resolveBrandIds(c, args.brand, args.country);
+            args.brandIds = r.ids.length ? r.ids : undefined;
+          }
+          result = await opSearch(c, args);
+          break;
+        }
+        case 'search_brands': result = await opBrands(c, a as any); break;
         case 'get_item': result = await opGetItem(c, a as any); break;
         case 'get_seller': result = await opGetSeller(c, a as any); break;
         case 'compare_prices': result = await opCompare(c, a as any); break;
