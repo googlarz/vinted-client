@@ -4,7 +4,7 @@ CLI and (optional) MCP server for the [Vinted](https://www.vinted.com) marketpla
 search listings, fetch items/sellers, compare prices across countries, and pull
 trending feeds.
 
-Inspired by `vinted-mcp-server`, but built from scratch with an open Vinted client,
+Built from scratch with an open Vinted client,
 a CLI as the primary interface, and MCP as an opt-in transport.
 
 > ⚠️ Vinted has anti-bot protection. Bare requests work most of the time but can be
