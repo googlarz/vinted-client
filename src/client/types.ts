@@ -41,10 +41,13 @@ export interface SearchParams {
   priceMax?: number;
   brandIds?: number[];
   categoryId?: number;
+  sizeIds?: number[];
   condition?: Condition[];
   sortBy?: SortBy;
   perPage?: number;
   page?: number;
+  dateFrom?: string;  // ISO date e.g. "2024-01-01"
+  dateTo?: string;
 }
 
 export interface Item {
@@ -83,4 +86,11 @@ export interface Seller {
   countryCode?: string;
   profileUrl: string;
   raw?: unknown;
+}
+
+export interface CategoryHit {
+  id: number;
+  title: string;
+  parentId?: number;
+  itemCount?: number;
 }
