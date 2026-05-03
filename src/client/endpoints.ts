@@ -1,6 +1,6 @@
 import {
   CONDITION_ID, DOMAIN, SORT_VALUE,
-  type Country, type Item, type ItemDetail, type SearchParams, type SearchResult, type Seller,
+  type Country, type Item, type ItemDetail, type SearchParams, type SearchResult, type Seller, type CategoryHit,
 } from './types.js';
 import { VintedClient } from './session.js';
 
@@ -14,9 +14,12 @@ function buildSearchPath(p: SearchParams): string {
   if (p.priceMax !== undefined) qs.set('price_to', String(p.priceMax));
   if (p.categoryId) qs.set('catalog_ids', String(p.categoryId));
   if (p.brandIds?.length) qs.set('brand_ids', p.brandIds.join(','));
+  if (p.sizeIds?.length) qs.set('size_ids', p.sizeIds.join(','));
   if (p.condition?.length) {
     qs.set('status_ids', p.condition.map((c) => CONDITION_ID[c]).join(','));
   }
+  if (p.dateFrom) qs.set('date_from', new Date(p.dateFrom).toISOString());
+  if (p.dateTo) qs.set('date_to', new Date(p.dateTo).toISOString());
   return `/api/v2/catalog/items?${qs.toString()}`;
 }
 
@@ -56,7 +59,6 @@ export async function getItem(
   itemId: number,
   country: Country = 'fr',
 ): Promise<ItemDetail> {
-  // Path A: official API (often gated by DataDome)
   try {
     const data = await client.apiGet<{ item: any }>(country, `/api/v2/items/${itemId}/details`);
     const i = data.item ?? data;
@@ -80,7 +82,6 @@ export async function getItem(
       raw: i,
     };
   } catch (err) {
-    // Path B: public HTML page → parse JSON-LD
     return getItemFromHtml(client, itemId, country, err);
   }
 }
@@ -101,11 +102,18 @@ async function getItemFromHtml(
   if (!ldMatch) throw new Error(`Item ${itemId}: no JSON-LD on page`);
   const ld = JSON.parse(ldMatch[1]);
 
-  const titleMatch = body.match(/<title>([^<]+)<\/title>/);
+  // Scrape seller id + username from member links in HTML
+  let sellerUsername = '';
+  let sellerId = 0;
+  const sellerMatch = body.match(/\/member\/(\d+)-([^"'/?&#\s]+)/);
+  if (sellerMatch) {
+    sellerId = Number(sellerMatch[1]);
+    sellerUsername = sellerMatch[2];
+  }
 
   return {
     id: itemId,
-    title: String(ld.name ?? titleMatch?.[1] ?? ''),
+    title: String(ld.name ?? ''),
     price: String(ld.offers?.price ?? ''),
     currency: String(ld.offers?.priceCurrency ?? ''),
     brand: ld.brand?.name,
@@ -113,7 +121,7 @@ async function getItemFromHtml(
     description: ld.description,
     photos: ld.image ? (Array.isArray(ld.image) ? ld.image : [ld.image]) : [],
     url: ld.offers?.url ?? url,
-    seller: { id: 0, username: '' },
+    seller: { id: sellerId, username: sellerUsername },
     raw: { source: 'html-jsonld', ld },
   };
 }
@@ -135,6 +143,66 @@ export async function getSeller(
     profileUrl: `https://${DOMAIN[country]}/member/${u.id}`,
     raw: u,
   };
+}
+
+export async function getSellerItems(
+  client: VintedClient,
+  sellerId: number,
+  country: Country = 'fr',
+  perPage = 20,
+  page = 1,
+): Promise<SearchResult> {
+  const qs = new URLSearchParams();
+  qs.set('seller_id', String(sellerId));
+  qs.set('per_page', String(Math.min(perPage, 100)));
+  qs.set('page', String(page));
+  qs.set('order', 'newest_first');
+  const data = await client.apiGet<{ items: any[]; pagination?: { total_entries?: number } }>(
+    country,
+    `/api/v2/catalog/items?${qs.toString()}`,
+  );
+  const items: Item[] = (data.items ?? []).map((i) => ({
+    id: Number(i.id),
+    title: String(i.title ?? ''),
+    price: String(i.price?.amount ?? i.price ?? ''),
+    currency: String(i.price?.currency_code ?? i.currency ?? ''),
+    brand: i.brand_title ?? i.brand,
+    size: i.size_title ?? i.size,
+    condition: i.status,
+    url: i.url ?? `https://${DOMAIN[country]}/items/${i.id}`,
+    favouriteCount: i.favourite_count,
+    photoUrl: i.photo?.url ?? i.photos?.[0]?.url,
+    seller: { id: sellerId, username: String(i.user?.login ?? '') },
+  }));
+  return { totalCount: data.pagination?.total_entries ?? items.length, page, items };
+}
+
+export async function getCategories(
+  client: VintedClient,
+  country: Country = 'fr',
+): Promise<CategoryHit[]> {
+  const data = await client.apiGet<{ dtos?: { catalogs?: any[] } }>(
+    country,
+    `/api/v2/catalog/initializers`,
+  );
+  const raw = data.dtos?.catalogs ?? [];
+  return flattenCategories(raw);
+}
+
+function flattenCategories(nodes: any[], parentId?: number): CategoryHit[] {
+  const result: CategoryHit[] = [];
+  for (const n of nodes) {
+    result.push({
+      id: Number(n.id),
+      title: String(n.title ?? n.name ?? ''),
+      parentId,
+      itemCount: n.item_count,
+    });
+    if (Array.isArray(n.catalogs) && n.catalogs.length) {
+      result.push(...flattenCategories(n.catalogs, Number(n.id)));
+    }
+  }
+  return result;
 }
 
 export interface BrandHit {

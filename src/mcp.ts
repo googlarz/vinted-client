@@ -10,11 +10,13 @@ import { opGetSeller } from './ops/get-seller.js';
 import { opCompare } from './ops/compare.js';
 import { opTrending } from './ops/trending.js';
 import { opBrands, resolveBrandIds } from './ops/brands.js';
+import { opCategories } from './ops/categories.js';
+import { opSellerItems } from './ops/seller-items.js';
 
 const TOOLS = [
   {
     name: 'search_items',
-    description: 'Search Vinted listings with filters across 19 countries. Pass `brand` (string array of names) to auto-resolve to IDs, or `brandIds` directly.',
+    description: 'Search Vinted listings with filters across 19 countries.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -25,17 +27,20 @@ const TOOLS = [
         brandIds: { type: 'array', items: { type: 'integer' } },
         brand: { type: 'array', items: { type: 'string' }, description: 'Brand names; resolved to IDs via Vinted lookup' },
         categoryId: { type: 'integer' },
+        sizeIds: { type: 'array', items: { type: 'integer' }, description: 'Size IDs (use get_categories + search_items to discover)' },
         condition: { type: 'array', items: { type: 'string', enum: ['new_with_tags', 'new_without_tags', 'very_good', 'good', 'satisfactory'] } },
         sortBy: { type: 'string', enum: ['relevance', 'price_low_to_high', 'price_high_to_low', 'newest_first'] },
         perPage: { type: 'integer' },
         page: { type: 'integer' },
+        dateFrom: { type: 'string', description: 'ISO date string e.g. 2024-01-01' },
+        dateTo: { type: 'string' },
       },
       required: ['query'],
     },
   },
   {
     name: 'get_item',
-    description: 'Fetch full item detail by ID + country, or by Vinted URL. Set browser=true to use stealth Chromium for full fidelity (requires optional playwright deps).',
+    description: 'Fetch full item detail by ID + country, or by Vinted URL.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -59,6 +64,20 @@ const TOOLS = [
     },
   },
   {
+    name: 'get_seller_items',
+    description: 'List items currently for sale by a seller.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sellerId: { type: 'integer' },
+        country: { type: 'string', enum: COUNTRIES, default: 'fr' },
+        limit: { type: 'integer', default: 20 },
+        page: { type: 'integer', default: 1 },
+      },
+      required: ['sellerId'],
+    },
+  },
+  {
     name: 'compare_prices',
     description: 'Compare median/avg prices for a query across countries.',
     inputSchema: {
@@ -73,7 +92,7 @@ const TOOLS = [
   },
   {
     name: 'search_brands',
-    description: 'Look up Vinted brand IDs by keyword. Use these IDs in search_items.brandIds.',
+    description: 'Look up Vinted brand IDs by keyword.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -85,8 +104,19 @@ const TOOLS = [
     },
   },
   {
+    name: 'get_categories',
+    description: 'Browse Vinted category tree. Returns IDs to use in search_items.categoryId.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        country: { type: 'string', enum: COUNTRIES, default: 'fr' },
+        query: { type: 'string', description: 'Optional keyword filter on category name' },
+      },
+    },
+  },
+  {
     name: 'get_trending',
-    description: 'Newest / trending items for a country (optionally scoped to a category).',
+    description: 'Newest / trending items for a country.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -100,7 +130,7 @@ const TOOLS = [
 
 function makeServer(): Server {
   const server = new Server(
-    { name: 'vinted-cli', version: '0.1.0' },
+    { name: 'vinted-cli', version: '1.0.0' },
     { capabilities: { tools: {} } },
   );
 
@@ -127,8 +157,10 @@ function makeServer(): Server {
         case 'search_brands': result = await opBrands(c, a as any); break;
         case 'get_item': result = await opGetItem(c, a as any); break;
         case 'get_seller': result = await opGetSeller(c, a as any); break;
+        case 'get_seller_items': result = await opSellerItems(c, a as any); break;
         case 'compare_prices': result = await opCompare(c, a as any); break;
         case 'get_trending': result = await opTrending(c, a as any); break;
+        case 'get_categories': result = await opCategories(c, a as any); break;
         default: throw new Error(`Unknown tool: ${name}`);
       }
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };

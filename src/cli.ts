@@ -8,13 +8,18 @@ import { opGetSeller } from './ops/get-seller.js';
 import { opCompare } from './ops/compare.js';
 import { opTrending } from './ops/trending.js';
 import { opBrands, resolveBrandIds } from './ops/brands.js';
+import { opCategories } from './ops/categories.js';
+import { opSellerItems } from './ops/seller-items.js';
+import { printOutput } from './format.js';
+
+type OutputFormat = 'json' | 'table';
 
 function client(opts: { proxy?: string; noCache?: boolean }) {
   return new VintedClient({ proxyUrl: opts.proxy, cacheTtlMs: opts.noCache ? 0 : undefined });
 }
 
-function out(x: unknown) {
-  process.stdout.write(JSON.stringify(x, null, 2) + '\n');
+function out(x: unknown, fmt: OutputFormat = 'json') {
+  printOutput(x, fmt);
 }
 
 function fail(e: unknown): never {
@@ -31,9 +36,10 @@ const program = new Command();
 program
   .name('vinted')
   .description('CLI for the Vinted marketplace — search, items, sellers, price compare, trending.')
-  .version('0.1.0')
+  .version('1.0.0')
   .option('--proxy <url>', 'HTTP/HTTPS proxy URL (also: VINTED_PROXY_URL, HTTPS_PROXY)')
-  .option('--no-cache', 'disable in-memory response cache (default 60s TTL)');
+  .option('--no-cache', 'disable in-memory response cache (default 60s TTL)')
+  .addOption(new Option('--output <fmt>', 'output format').choices(['json', 'table']).default('json'));
 
 program
   .command('search <query>')
@@ -44,16 +50,22 @@ program
   .option('--brand-ids <ids>', 'comma-separated brand IDs', (v) => parseList<string>(v).map(Number))
   .option('--brand <names>', 'comma-separated brand names (resolved to IDs via Vinted lookup)')
   .option('--category-id <n>', 'category ID', (v) => Number(v))
+  .option('--size-ids <ids>', 'comma-separated size IDs', (v) => parseList<string>(v).map(Number))
   .option('--condition <list>', 'comma-separated conditions', (v) => parseList<Condition>(v))
   .addOption(new Option('--sort <s>', 'sort').choices(['relevance', 'price_low_to_high', 'price_high_to_low', 'newest_first']).default('relevance'))
   .option('-l, --limit <n>', 'max items per page (1–100)', (v) => Number(v), 20)
   .option('-p, --page <n>', 'page', (v) => Number(v), 1)
+  .option('--date-from <date>', 'filter items listed after this date (YYYY-MM-DD)')
+  .option('--date-to <date>', 'filter items listed before this date (YYYY-MM-DD)')
   .option('--all', 'walk pages and return all results (up to --max-items)')
   .option('--max-items <n>', 'cap when --all (default 1000)', (v) => Number(v), 1000)
   .option('--max-pages <n>', 'cap when --all (default 25)', (v) => Number(v), 25)
+  .option('--watch [interval]', 'poll for new items every N seconds (default 60)')
   .action(async (query: string, o, cmd) => {
     try {
-      const c = client(cmd.optsWithGlobals());
+      const g = cmd.optsWithGlobals();
+      const c = client(g);
+      const fmt: OutputFormat = g.output ?? 'json';
       let brandIds = o.brandIds as number[] | undefined;
       if (!brandIds && o.brand) {
         const names = parseList<string>(o.brand);
@@ -70,15 +82,36 @@ program
         priceMax: o.priceMax,
         brandIds,
         categoryId: o.categoryId,
+        sizeIds: o.sizeIds,
         condition: o.condition,
         sortBy: o.sort as SortBy,
         perPage: o.limit,
         page: o.page,
+        dateFrom: o.dateFrom,
+        dateTo: o.dateTo,
       };
+
+      if (o.watch !== undefined) {
+        const interval = typeof o.watch === 'string' ? Number(o.watch) * 1000 : 60_000;
+        const seen = new Set<number>();
+        const poll = async () => {
+          const r = await opSearch(c, { ...params, sortBy: 'newest_first', perPage: 50 });
+          const fresh = r.items.filter((i) => !seen.has(i.id));
+          fresh.forEach((i) => seen.add(i.id));
+          if (seen.size > 0 && fresh.length > 0) {
+            out({ totalCount: fresh.length, page: 1, items: fresh }, fmt);
+          }
+        };
+        await poll(); // first run populates seen set without printing
+        process.stderr.write(`watching "${query}" every ${interval / 1000}s — Ctrl+C to stop\n`);
+        setInterval(poll, interval);
+        return;
+      }
+
       const r = o.all
         ? await opSearchAll(c, { ...params, maxItems: o.maxItems, maxPages: o.maxPages })
         : await opSearch(c, params);
-      out(r);
+      out(r, fmt);
     } catch (e) { fail(e); }
   });
 
@@ -89,12 +122,13 @@ program
   .option('--browser', 'use stealth browser to fetch full details (bypasses DataDome). Also: VINTED_BROWSER=1')
   .action(async (idOrUrl: string, o, cmd) => {
     try {
+      const g = cmd.optsWithGlobals();
       const isUrl = /^https?:/.test(idOrUrl);
       const base = isUrl
         ? { url: idOrUrl }
         : { itemId: Number(idOrUrl), country: o.country as Country };
-      const r = await opGetItem(client(cmd.optsWithGlobals()), { ...base, browser: o.browser });
-      out(r);
+      const r = await opGetItem(client(g), { ...base, browser: o.browser });
+      out(r, g.output);
     } catch (e) { fail(e); }
   });
 
@@ -104,11 +138,28 @@ program
   .addOption(new Option('-c, --country <cc>', 'country code').choices(COUNTRIES).default('fr'))
   .action(async (id: string, o, cmd) => {
     try {
-      const r = await opGetSeller(client(cmd.optsWithGlobals()), {
+      const g = cmd.optsWithGlobals();
+      const r = await opGetSeller(client(g), { sellerId: Number(id), country: o.country as Country });
+      out(r, g.output);
+    } catch (e) { fail(e); }
+  });
+
+program
+  .command('seller-items <id>')
+  .description('List items currently for sale by a seller')
+  .addOption(new Option('-c, --country <cc>', 'country code').choices(COUNTRIES).default('fr'))
+  .option('-l, --limit <n>', 'max items', (v) => Number(v), 20)
+  .option('-p, --page <n>', 'page', (v) => Number(v), 1)
+  .action(async (id: string, o, cmd) => {
+    try {
+      const g = cmd.optsWithGlobals();
+      const r = await opSellerItems(client(g), {
         sellerId: Number(id),
         country: o.country as Country,
+        limit: o.limit,
+        page: o.page,
       });
-      out(r);
+      out(r, g.output);
     } catch (e) { fail(e); }
   });
 
@@ -119,12 +170,9 @@ program
   .option('-l, --limit <n>', 'items per country', (v) => Number(v), 20)
   .action(async (query: string, o, cmd) => {
     try {
-      const r = await opCompare(client(cmd.optsWithGlobals()), {
-        query,
-        countries: o.countries,
-        limit: o.limit,
-      });
-      out(r);
+      const g = cmd.optsWithGlobals();
+      const r = await opCompare(client(g), { query, countries: o.countries, limit: o.limit });
+      out(r, g.output);
     } catch (e) { fail(e); }
   });
 
@@ -135,10 +183,22 @@ program
   .option('-l, --limit <n>', 'max results', (v) => Number(v), 10)
   .action(async (query: string, o, cmd) => {
     try {
-      const r = await opBrands(client(cmd.optsWithGlobals()), {
-        query, country: o.country as Country, limit: o.limit,
-      });
-      out(r);
+      const g = cmd.optsWithGlobals();
+      const r = await opBrands(client(g), { query, country: o.country as Country, limit: o.limit });
+      out(r, g.output);
+    } catch (e) { fail(e); }
+  });
+
+program
+  .command('categories')
+  .description('Browse Vinted category tree (use IDs with --category-id in search)')
+  .addOption(new Option('-c, --country <cc>', 'country code').choices(COUNTRIES).default('fr'))
+  .option('--query <q>', 'filter by name keyword')
+  .action(async (o, cmd) => {
+    try {
+      const g = cmd.optsWithGlobals();
+      const r = await opCategories(client(g), { country: o.country as Country, query: o.query });
+      out(r, g.output);
     } catch (e) { fail(e); }
   });
 
@@ -161,12 +221,13 @@ program
   .option('-l, --limit <n>', 'max items', (v) => Number(v), 20)
   .action(async (o, cmd) => {
     try {
-      const r = await opTrending(client(cmd.optsWithGlobals()), {
+      const g = cmd.optsWithGlobals();
+      const r = await opTrending(client(g), {
         country: o.country as Country,
         categoryId: o.categoryId,
         limit: o.limit,
       });
-      out(r);
+      out(r, g.output);
     } catch (e) { fail(e); }
   });
 
