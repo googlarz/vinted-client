@@ -1,11 +1,11 @@
 # vinted-client
 
-CLI and (optional) MCP server for the [Vinted](https://www.vinted.com) marketplace —
+The best MCP and CLI server for the [Vinted](https://www.vinted.com) marketplace —
 search listings, fetch items/sellers, compare prices across countries, and pull
 trending feeds.
 
 Built from scratch with an open Vinted client,
-a CLI as the primary interface, and MCP as an opt-in transport.
+a CLI as the primary interface, and MCP as an opt-in transport for token optimization.
 
 > ⚠️ Vinted has anti-bot protection. Bare requests work most of the time but can be
 > rate-limited or blocked. Set a proxy for reliability — see [Proxy setup](#proxy-setup).
