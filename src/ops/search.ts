@@ -15,16 +15,31 @@ export async function opSearchAll(
   const perPage = Math.min(p.perPage ?? 96, 100);
   const maxItems = p.maxItems ?? 1000;
   const maxPages = p.maxPages ?? 25;
+  const PREFETCH = 3; // pages to keep in-flight concurrently
 
   const seen = new Set<number>();
   const items: SearchResult['items'] = [];
-  let page = p.page ?? 1;
+  let nextPage = p.page ?? 1;
   let totalCount = 0;
 
-  while (page <= maxPages && items.length < maxItems) {
-    const r = await searchItems(client, { ...p, perPage, page });
+  // Sliding window of in-flight page requests
+  const pending: Array<Promise<SearchResult>> = [];
+
+  const enqueue = () => {
+    while (pending.length < PREFETCH && nextPage <= maxPages && items.length < maxItems) {
+      pending.push(searchItems(client, { ...p, perPage, page: nextPage++ }));
+    }
+  };
+
+  enqueue();
+
+  while (pending.length > 0) {
+    const r = await pending.shift()!;
     if (r.totalCount > totalCount) totalCount = r.totalCount;
-    if (!r.items.length) break;
+    if (!r.items.length) {
+      pending.length = 0; // drain: no point fetching further pages
+      break;
+    }
 
     let added = 0;
     for (const it of r.items) {
@@ -34,8 +49,12 @@ export async function opSearchAll(
       added++;
       if (items.length >= maxItems) break;
     }
-    if (added === 0) break; // no new items → end of stream
-    page++;
+    if (added === 0) {
+      pending.length = 0; // no new items → end of stream
+      break;
+    }
+
+    enqueue(); // top up the window
   }
 
   return { totalCount: totalCount || items.length, page: 1, items };

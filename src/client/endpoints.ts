@@ -177,6 +177,8 @@ export async function getSellerItems(
   return { totalCount: data.pagination?.total_entries ?? items.length, page, items };
 }
 
+const STATIC_TTL_MS = 60 * 60 * 1000; // 1 hour — categories rarely change
+
 export async function getCategories(
   client: VintedClient,
   country: Country = 'fr',
@@ -184,6 +186,7 @@ export async function getCategories(
   const data = await client.apiGet<{ dtos?: { catalogs?: any[] } }>(
     country,
     `/api/v2/catalog/initializers`,
+    STATIC_TTL_MS,
   );
   const raw = data.dtos?.catalogs ?? [];
   return flattenCategories(raw);

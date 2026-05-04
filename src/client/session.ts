@@ -123,9 +123,10 @@ export class VintedClient {
     return { status: res.status, body: await res.text() };
   }
 
-  async apiGet<T = unknown>(country: Country, path: string): Promise<T> {
+  async apiGet<T = unknown>(country: Country, path: string, overrideTtlMs?: number): Promise<T> {
+    const ttl = overrideTtlMs ?? this.cacheTtlMs;
     const cacheKey = `${country}:${path}`;
-    if (this.cacheTtlMs > 0) {
+    if (ttl > 0) {
       const hit = this.cache.get(cacheKey) as T | undefined;
       if (hit !== undefined) return hit;
     }
@@ -180,7 +181,7 @@ export class VintedClient {
       }
 
       const json = (await res.json()) as T;
-      if (this.cacheTtlMs > 0) this.cache.set(cacheKey, json);
+      if (ttl > 0) this.cache.set(cacheKey, json);
       return json;
     }
 
