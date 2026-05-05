@@ -49,8 +49,8 @@ export async function opSearchAll(
       added++;
       if (items.length >= maxItems) break;
     }
-    if (added === 0) {
-      pending.length = 0; // no new items → end of stream
+    if (items.length >= maxItems || added === 0) {
+      pending.length = 0; // hit limit or end of stream — discard remaining in-flight
       break;
     }
 
