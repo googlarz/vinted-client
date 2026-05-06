@@ -1,4 +1,4 @@
-# vinted-client
+# Vinted MCP and CLI Server
 
 The best MCP and CLI server for the [Vinted](https://www.vinted.com) marketplace —
 search listings, fetch items/sellers, compare prices across countries, and pull
