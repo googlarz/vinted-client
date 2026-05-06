@@ -2,28 +2,41 @@
 
 # 🛍️ Vinted MCP & CLI Server
 
-**Search, scrape, and automate Vinted across 19 countries — from your terminal or AI assistant.**
+**Give your AI assistant access to Vinted — search, compare prices, and track sellers across 19 countries.**
 
 [![npm version](https://img.shields.io/npm/v/@googlarz/vinted-client?style=flat-square&color=cc3534)](https://www.npmjs.com/package/@googlarz/vinted-client)
 [![CI](https://img.shields.io/github/actions/workflow/status/googlarz/vinted-mcp-cli/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/googlarz/vinted-mcp-cli/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 [![Node ≥18](https://img.shields.io/badge/node-%E2%89%A518-green?style=flat-square)](https://nodejs.org)
 
-```
-vinted search "nike air max" --country de --price-max 60 --output table
-```
-
 </div>
+
+---
+
+## The idea
+
+Vinted has no public API. This package bridges that gap — it lets **AI assistants talk directly to Vinted** via the [Model Context Protocol](https://modelcontextprotocol.io).
+
+Connect it to Claude, Cursor, or any MCP-compatible assistant and just ask:
+
+> *"Find me a North Face jacket under €60 in Germany, good condition or better"*
+
+> *"Compare prices for Air Jordan 1s across France, Italy and the UK"*
+
+> *"What is seller #123456 currently selling? Anything under €20?"*
+
+The AI figures out which filters to use, calls Vinted, and gives you a real answer — no searching, no filtering, no tabs.
+
+Also ships as a **CLI tool** and **TypeScript library** for direct use.
 
 ---
 
 ## What is this?
 
-A **CLI tool** and **MCP server** for the Vinted secondhand marketplace. No official API needed — it bootstraps a session cookie from the public catalog page, then hits the private JSON API that the Vinted web app uses internally.
+An **MCP server**, **CLI tool**, and **TypeScript library** for the Vinted secondhand marketplace. No official API — it bootstraps a session cookie from the public catalog page and calls the private JSON API the Vinted web app uses internally.
 
-Works as:
-- 🖥️ **Terminal tool** — pipe results, watch for new listings, compare prices across Europe
 - 🤖 **MCP server** — plug into Claude, Cursor, or any AI assistant with MCP support
+- 🖥️ **CLI tool** — pipe results, watch for new listings, compare prices from your terminal
 - 📦 **TypeScript library** — import `opSearch`, `opCompare`, etc. directly in your code
 
 ---
