@@ -6,7 +6,7 @@ export type {
   Item, SearchResult, ItemDetail, Seller, CategoryHit,
 } from './client/types.js';
 export { COUNTRIES, DOMAIN, CONDITION_ID, SORT_VALUE } from './client/types.js';
-export type { BrandHit, ItemSlim } from './client/endpoints.js';
+export type { BrandHit, ItemSlim, FeedbackEntry, FeedbackResult } from './client/endpoints.js';
 export { opSearch, opSearchAll } from './ops/search.js';
 export { opGetItem } from './ops/get-item.js';
 export { opGetSeller } from './ops/get-seller.js';
@@ -15,3 +15,4 @@ export { opTrending } from './ops/trending.js';
 export { opBrands, resolveBrandIds } from './ops/brands.js';
 export { opCategories } from './ops/categories.js';
 export { opSellerItems } from './ops/seller-items.js';
+export { opGetSellerFeedback } from './ops/get-seller-feedback.js';

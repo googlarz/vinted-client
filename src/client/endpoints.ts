@@ -145,6 +145,62 @@ export async function getSeller(
   };
 }
 
+export interface FeedbackEntry {
+  id: number;
+  createdAt: string;
+  feedback: string;
+  rating: number;          // 1–5 stars
+  feedbackRate: number;    // 1=negative 2=neutral 3=positive
+  itemId: number | null;
+  fromUsername: string;
+  fromUserId: number;
+  isSystem: boolean;
+}
+
+export interface FeedbackResult {
+  totalCount: number;
+  page: number;
+  totalPages: number;
+  entries: FeedbackEntry[];
+}
+
+export async function getSellerFeedback(
+  client: VintedClient,
+  userId: number,
+  country: Country = 'fr',
+  perPage = 20,
+  page = 1,
+): Promise<FeedbackResult> {
+  const qs = new URLSearchParams({
+    user_id: String(userId),
+    per_page: String(Math.min(perPage, 100)),
+    page: String(page),
+  });
+  const data = await client.apiGet<{
+    user_feedbacks?: any[];
+    pagination?: { total_entries?: number; total_pages?: number; current_page?: number };
+  }>(country, `/api/v2/feedbacks?${qs.toString()}`);
+
+  const entries: FeedbackEntry[] = (data.user_feedbacks ?? []).map((f) => ({
+    id: Number(f.id),
+    createdAt: String(f.created_at_ts ?? f.created_at ?? ''),
+    feedback: String(f.feedback ?? ''),
+    rating: Number(f.rating ?? 0),
+    feedbackRate: Number(f.feedback_rate ?? 0),
+    itemId: f.item_id != null ? Number(f.item_id) : null,
+    fromUsername: String(f.user?.login ?? f.comment?.user?.login ?? ''),
+    fromUserId: Number(f.feedback_user_id ?? 0),
+    isSystem: Boolean(f.system_feedback),
+  }));
+
+  return {
+    totalCount: data.pagination?.total_entries ?? entries.length,
+    page: data.pagination?.current_page ?? page,
+    totalPages: data.pagination?.total_pages ?? 1,
+    entries,
+  };
+}
+
 export async function getSellerItems(
   client: VintedClient,
   sellerId: number,
