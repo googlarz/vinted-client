@@ -15,6 +15,7 @@ function buildSearchPath(p: SearchParams): string {
   if (p.categoryId) qs.set('catalog_ids', String(p.categoryId));
   if (p.brandIds?.length) qs.set('brand_ids', p.brandIds.join(','));
   if (p.sizeIds?.length) qs.set('size_ids', p.sizeIds.join(','));
+  if (p.colorIds?.length) qs.set('color_ids', p.colorIds.join(','));
   if (p.condition?.length) {
     qs.set('status_ids', p.condition.map((c) => CONDITION_ID[c]).join(','));
   }
@@ -288,6 +289,57 @@ export async function searchBrands(
     slug: String(b.slug ?? ''),
     itemCount: b.item_count,
     favouriteCount: b.favourite_count,
+  }));
+}
+
+export interface ColorHit {
+  id: number;
+  title: string;
+  hex: string;
+  code: string;
+  order: number;
+}
+
+export async function getColors(
+  client: VintedClient,
+  country: Country = 'fr',
+): Promise<ColorHit[]> {
+  const data = await client.apiGet<{ colors?: any[] }>(country, `/api/v2/colors`, STATIC_TTL_MS);
+  return (data.colors ?? []).map((c) => ({
+    id: Number(c.id),
+    title: String(c.title ?? ''),
+    hex: String(c.hex ?? ''),
+    code: String(c.code ?? ''),
+    order: Number(c.order ?? 0),
+  }));
+}
+
+export interface SizeEntry {
+  id: number;
+  title: string;
+}
+
+export interface SizeGroup {
+  id: number;
+  caption: string;
+  description: string;
+  sizes: SizeEntry[];
+}
+
+export async function getSizeGroups(
+  client: VintedClient,
+  country: Country = 'fr',
+): Promise<SizeGroup[]> {
+  const data = await client.apiGet<{ size_groups?: any[] }>(
+    country,
+    `/api/v2/size_groups`,
+    STATIC_TTL_MS,
+  );
+  return (data.size_groups ?? []).map((g) => ({
+    id: Number(g.id),
+    caption: String(g.caption ?? ''),
+    description: String(g.description ?? ''),
+    sizes: (g.sizes ?? []).map((s: any) => ({ id: Number(s.id), title: String(s.title ?? '') })),
   }));
 }
 

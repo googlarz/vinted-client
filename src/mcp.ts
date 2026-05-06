@@ -14,6 +14,8 @@ import { opCategories } from './ops/categories.js';
 import { opSellerItems } from './ops/seller-items.js';
 import { opGetSellerFeedback } from './ops/get-seller-feedback.js';
 import { opSearchAll } from './ops/search.js';
+import { opGetColors } from './ops/get-colors.js';
+import { opGetSizeGroups } from './ops/get-size-groups.js';
 
 const TOOLS = [
   {
@@ -29,7 +31,8 @@ const TOOLS = [
         brandIds: { type: 'array', items: { type: 'integer' }, description: 'Numeric Vinted brand IDs from search_brands. Prefer the brand[] parameter for name-based lookup.' },
         brand: { type: 'array', items: { type: 'string' }, description: 'Brand names to filter by, e.g. ["Nike", "Adidas"]. Automatically resolved to IDs via search_brands.' },
         categoryId: { type: 'integer', description: 'Category ID from get_categories (e.g. 4 = women\'s clothing, 5 = men\'s clothing, 1231 = women\'s shoes)' },
-        sizeIds: { type: 'array', items: { type: 'integer' }, description: 'Size IDs to filter by. Discover valid IDs by inspecting results from a previous search in the same category.' },
+        sizeIds: { type: 'array', items: { type: 'integer' }, description: 'Size IDs to filter by. Discover valid IDs by inspecting results from a previous search in the same category, or use get_size_groups to browse all size groups.' },
+        colorIds: { type: 'array', items: { type: 'integer' }, description: 'Color IDs to filter by (e.g. [1] for black, [3] for white). Use get_colors to discover all available color IDs and their names.' },
         condition: { type: 'array', items: { type: 'string', enum: ['new_with_tags', 'new_without_tags', 'very_good', 'good', 'satisfactory'] }, description: 'Item condition filter; multiple values are OR-ed together' },
         sortBy: { type: 'string', enum: ['relevance', 'price_low_to_high', 'price_high_to_low', 'newest_first'], description: 'Sort order for results. Defaults to relevance.' },
         perPage: { type: 'integer', description: 'Results per page, 1–96. Defaults to 20.' },
@@ -130,6 +133,7 @@ const TOOLS = [
         brand: { type: 'array', items: { type: 'string' }, description: 'Brand names; automatically resolved to IDs' },
         categoryId: { type: 'integer', description: 'Category ID from get_categories' },
         sizeIds: { type: 'array', items: { type: 'integer' }, description: 'Size IDs to filter by' },
+        colorIds: { type: 'array', items: { type: 'integer' }, description: 'Color IDs to filter by. Use get_colors to discover all available color IDs.' },
         condition: { type: 'array', items: { type: 'string', enum: ['new_with_tags', 'new_without_tags', 'very_good', 'good', 'satisfactory'] }, description: 'Item condition filter' },
         sortBy: { type: 'string', enum: ['relevance', 'price_low_to_high', 'price_high_to_low', 'newest_first'], description: 'Sort order' },
         maxItems: { type: 'integer', default: 200, description: 'Maximum total items to collect across all pages (default 200, max 1000)' },
@@ -150,6 +154,26 @@ const TOOLS = [
         page: { type: 'integer', default: 1, description: 'Page number starting at 1' },
       },
       required: ['sellerId'],
+    },
+  },
+  {
+    name: 'get_colors',
+    description: 'Fetch the complete list of Vinted color options available as search filters. Returns every color with its numeric ID, display name, hex color code, short code (e.g. "BLACK"), and sort order. Pass the returned IDs to search_items.colorIds or search_all_items.colorIds to restrict results to specific colors. Results are cached for 1 hour — color catalogues change rarely.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        country: { type: 'string', enum: COUNTRIES, default: 'fr', description: 'Vinted country site to query (color catalogues are shared across countries)' },
+      },
+    },
+  },
+  {
+    name: 'get_size_groups',
+    description: 'Fetch all Vinted size groups with their constituent size IDs and labels. Returns a list of size groups (e.g. "Women\'s clothing", "Men\'s shoes", "Kids 2–8 yrs") — each containing the group ID, caption, description, and an array of sizes with numeric IDs and display titles (e.g. "XS", "42", "12 UK"). Pass individual size IDs from the sizes array to search_items.sizeIds or search_all_items.sizeIds to filter listings to an exact size. Results are cached for 1 hour.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        country: { type: 'string', enum: COUNTRIES, default: 'fr', description: 'Vinted country site to query (size catalogues are shared across countries)' },
+      },
     },
   },
   {
@@ -209,6 +233,8 @@ function makeServer(): Server {
           break;
         }
         case 'get_seller_feedback': result = await opGetSellerFeedback(c, a as any); break;
+        case 'get_colors': result = await opGetColors(c, a as any); break;
+        case 'get_size_groups': result = await opGetSizeGroups(c, a as any); break;
         default: throw new Error(`Unknown tool: ${name}`);
       }
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };

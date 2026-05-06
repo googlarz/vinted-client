@@ -42,6 +42,7 @@ export interface SearchParams {
   brandIds?: number[];
   categoryId?: number;
   sizeIds?: number[];
+  colorIds?: number[];
   condition?: Condition[];
   sortBy?: SortBy;
   perPage?: number;
