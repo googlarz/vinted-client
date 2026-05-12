@@ -1,0 +1,21 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      proxyUrl:
+        type: string
+        description: Optional HTTP proxy URL (e.g. http://proxy:8080) — recommended for high-volume use
+      country:
+        type: string
+        description: Vinted country domain to use (e.g. de, fr, pl, uk). Defaults to de.
+        default: "de"
+  commandFunction: |-
+    (config) => ({
+      command: "npx",
+      args: ["-y", "@googlarz/vinted-client/mcp"],
+      env: {
+        ...(config.proxyUrl ? { VINTED_PROXY_URL: config.proxyUrl } : {}),
+        ...(config.country ? { VINTED_COUNTRY: config.country } : {})
+      }
+    })
